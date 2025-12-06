@@ -1,0 +1,334 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Calendar, Clock, User, DollarSign, X, Upload, Plus, ChevronDown } from "lucide-react";
+import { api } from "@/lib/api";
+import type { Booking } from "@/lib/types";
+import toast from "react-hot-toast";
+
+export default function BookingsPage() {
+	const [bookings, setBookings] = useState<Booking[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+	const [showModal, setShowModal] = useState(false);
+	const [dateRange, setDateRange] = useState("mm/dd/yyyy");
+	const [serviceFilter, setServiceFilter] = useState("All Service");
+	const [artistFilter, setArtistFilter] = useState("All Artist");
+	const [showServiceDropdown, setShowServiceDropdown] = useState(false);
+	const [showArtistDropdown, setShowArtistDropdown] = useState(false);
+	const serviceDropdownRef = useRef<HTMLDivElement>(null);
+	const artistDropdownRef = useRef<HTMLDivElement>(null);
+
+	// Fetch bookings
+	useEffect(() => {
+		const fetchBookings = async () => {
+			try {
+				setLoading(true);
+				const bookingsData = await api.bookings.getUserBookings();
+				setBookings(bookingsData);
+			} catch (error: any) {
+				toast.error("Failed to load bookings");
+			} finally {
+				setLoading(false);
+			}
+		};
+		fetchBookings();
+	}, []);
+
+	// Close dropdowns when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(event.target as Node)) {
+				setShowServiceDropdown(false);
+			}
+			if (artistDropdownRef.current && !artistDropdownRef.current.contains(event.target as Node)) {
+				setShowArtistDropdown(false);
+			}
+		};
+
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+		};
+	}, []);
+
+	const getStatusColor = (status: string) => {
+		switch (status) {
+			case "confirmed":
+				return "bg-green-500 text-white";
+			case "pending":
+				return "bg-orange-500 text-white";
+			case "completed":
+				return "bg-blue-500 text-white";
+			case "cancelled":
+				return "bg-red-500 text-white";
+			default:
+				return "bg-gray-500 text-white";
+		}
+	};
+
+	const formatDate = (dateString: string) => {
+		const date = new Date(dateString);
+		return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+	};
+
+	const formatTime = (timeSlot: { start: string; end: string }) => {
+		return `${timeSlot.start} - ${timeSlot.end}`;
+	};
+
+	const filteredBookings = bookings.filter(booking => {
+		if (serviceFilter !== "All Service" && booking.service !== serviceFilter) return false;
+		if (artistFilter !== "All Artist" && booking.artist?.name !== artistFilter) return false;
+		return true;
+	});
+
+	const handleViewDetails = (booking: Booking) => {
+		setSelectedBooking(booking);
+		setShowModal(true);
+	};
+
+	const services = ["All Services", "Brows", "Lashes", "Tattoo", "Spa"];
+	const artists = ["All Artist", "Lulu", "Sarah", "Grace"];
+
+	return (
+		<div className="space-y-6">
+			{/* Page Header */}
+			<div>
+				<h1 className="text-3xl font-bold text-gray-900">Bookings Management</h1>
+				<p className="text-gray-600 mt-1">Manage all service in one place.</p>
+			</div>
+
+			{/* Action Buttons */}
+			<div className="flex items-center justify-between">
+				<div className="flex gap-4">
+					<button className="flex items-center gap-2 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold px-4 py-2 rounded-lg transition-colors">
+						<Upload size={18} />
+						Export Data
+					</button>
+					<button className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-4 py-2 rounded-lg transition-colors">
+						<Plus size={18} />
+						New Booking
+					</button>
+				</div>
+			</div>
+
+			{/* Filters */}
+			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+					{/* Date Range */}
+					<div className="relative">
+						<label className="block text-sm font-semibold text-gray-700 mb-2">Date Range</label>
+						<div className="relative">
+							<Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+							<input
+								type="text"
+								value={dateRange}
+								onChange={(e) => setDateRange(e.target.value)}
+								placeholder="mm/dd/yyyy"
+								className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+							/>
+						</div>
+					</div>
+
+					{/* Service Type */}
+					<div className="relative" ref={serviceDropdownRef}>
+						<label className="block text-sm font-semibold text-gray-700 mb-2">Service Type</label>
+						<div className="relative">
+							<button
+								onClick={() => {
+									setShowServiceDropdown(!showServiceDropdown);
+									setShowArtistDropdown(false);
+								}}
+								className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50"
+							>
+								<span>{serviceFilter}</span>
+								<ChevronDown size={18} className="text-gray-400" />
+							</button>
+							{showServiceDropdown && (
+								<div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+									{services.map((service) => (
+										<button
+											key={service}
+											onClick={() => {
+												setServiceFilter(service);
+												setShowServiceDropdown(false);
+											}}
+											className="w-full text-left px-4 py-2 hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg"
+										>
+											{service}
+										</button>
+									))}
+								</div>
+							)}
+						</div>
+					</div>
+
+					{/* Artist */}
+					<div className="relative" ref={artistDropdownRef}>
+						<label className="block text-sm font-semibold text-gray-700 mb-2">Artist</label>
+						<div className="relative">
+							<button
+								onClick={() => {
+									setShowArtistDropdown(!showArtistDropdown);
+									setShowServiceDropdown(false);
+								}}
+								className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50"
+							>
+								<span>{artistFilter}</span>
+								<ChevronDown size={18} className="text-gray-400" />
+							</button>
+							{showArtistDropdown && (
+								<div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+									{artists.map((artist) => (
+										<button
+											key={artist}
+											onClick={() => {
+												setArtistFilter(artist);
+												setShowArtistDropdown(false);
+											}}
+											className="w-full text-left px-4 py-2 hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg"
+										>
+											{artist}
+										</button>
+									))}
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			</div>
+
+			{/* Appointments Table */}
+			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+				<h2 className="text-xl font-bold text-gray-900 mb-6">All Appointments ({filteredBookings.length})</h2>
+				{loading ? (
+					<div className="text-center py-12">
+						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto"></div>
+					</div>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="w-full">
+							<thead>
+								<tr className="border-b border-gray-200">
+									<th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Service</th>
+									<th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Artist</th>
+									<th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
+									<th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Time</th>
+									<th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Location</th>
+									<th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+									<th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Action</th>
+								</tr>
+							</thead>
+							<tbody>
+								{filteredBookings.map((booking) => (
+									<tr key={booking.id} className="border-b border-gray-100 hover:bg-gray-50">
+										<td className="py-4 px-4 text-sm text-gray-900">{booking.service}</td>
+										<td className="py-4 px-4 text-sm text-gray-600">{booking.artist?.name || "N/A"}</td>
+										<td className="py-4 px-4 text-sm text-gray-600">{formatDate(booking.appointmentDate)}</td>
+										<td className="py-4 px-4 text-sm text-gray-600">{formatTime(booking.timeSlot)}</td>
+										<td className="py-4 px-4 text-sm text-gray-600">{booking.location}</td>
+										<td className="py-4 px-4">
+											<span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(booking.status)}`}>
+												{booking.status}
+											</span>
+										</td>
+										<td className="py-4 px-4">
+											<button
+												onClick={() => handleViewDetails(booking)}
+												className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-semibold px-3 py-1 rounded-lg transition-colors"
+											>
+												View Details
+											</button>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</div>
+
+			{/* Booking Details Modal */}
+			{showModal && selectedBooking && (
+				<>
+					<div
+						className="fixed inset-0 bg-black bg-opacity-50 z-50"
+						onClick={() => setShowModal(false)}
+					/>
+					<div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+						<div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+							{/* Modal Header */}
+							<div className="flex items-center justify-between mb-6">
+								<h2 className="text-2xl font-bold text-gray-900">Booking Details</h2>
+								<button
+									onClick={() => setShowModal(false)}
+									className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+								>
+									<X size={20} />
+								</button>
+							</div>
+
+							{/* Booking ID */}
+							<p className="text-sm text-gray-600 mb-6">Booking ID: #{selectedBooking.id}</p>
+
+							{/* Details */}
+							<div className="space-y-4 mb-6">
+								<div className="flex items-center gap-3">
+									<Calendar className="text-gray-400" size={20} />
+									<div>
+										<p className="text-xs text-gray-500">Date</p>
+										<p className="text-sm font-semibold text-gray-900">{formatDate(selectedBooking.appointmentDate)}</p>
+									</div>
+								</div>
+								<div className="flex items-center gap-3">
+									<Clock className="text-gray-400" size={20} />
+									<div>
+										<p className="text-xs text-gray-500">Time</p>
+										<p className="text-sm font-semibold text-gray-900">{formatTime(selectedBooking.timeSlot)}</p>
+									</div>
+								</div>
+							</div>
+
+							{/* Service */}
+							<div className="mb-4">
+								<p className="text-xs text-gray-500 mb-1">Service</p>
+								<p className="text-sm font-semibold text-gray-900">{selectedBooking.service}</p>
+							</div>
+
+							{/* Artist */}
+							<div className="mb-4">
+								<p className="text-xs text-gray-500 mb-1">Artist</p>
+								<p className="text-sm font-semibold text-gray-900">{selectedBooking.artist?.name || "N/A"}</p>
+							</div>
+
+							{/* Location */}
+							<div className="mb-4">
+								<p className="text-xs text-gray-500 mb-1">Location</p>
+								<p className="text-sm font-semibold text-gray-900">{selectedBooking.location}</p>
+							</div>
+
+							{/* Status */}
+							<div className="mb-6">
+								<p className="text-xs text-gray-500 mb-2">Status</p>
+								<span className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}>
+									{selectedBooking.status}
+								</span>
+							</div>
+
+							{/* Action Buttons */}
+							<div className="space-y-3">
+								<button className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 rounded-lg transition-colors">
+									Reschedule
+								</button>
+								<button className="w-full border-2 border-yellow-500 text-yellow-500 hover:bg-yellow-50 font-semibold py-3 rounded-lg transition-colors">
+									Reassign
+								</button>
+							</div>
+						</div>
+					</div>
+				</>
+			)}
+		</div>
+	);
+}
+
