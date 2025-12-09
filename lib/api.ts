@@ -25,7 +25,7 @@ import type {
 } from './types';
 
 // Base API configuration
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'luluartistry-backend.onrender.com/';
 
 // Helper function to get auth token
 const getAuthToken = (): string | null => {
